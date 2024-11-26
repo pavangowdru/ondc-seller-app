@@ -1,0 +1,106 @@
+version: "3"
+services:
+
+  # reverse-proxy:
+  #   image: nginx:latest
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf
+  #   networks:
+  #     - app-network
+  #   depends_on:
+  #     - ondc-frontend
+  #     - ondc-backend
+  #     - ondc-keycloak
+
+  ondc-keycloak:
+    restart: always
+    build:
+      context: ./ondc-keycloak  # Use the current directory
+      dockerfile: Dockerfile  # Specify the Dockerfile name if different
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://ondc-postgres:5432/mydb"
+      KC_DB_USERNAME: myuser
+      KC_DB_PASSWORD: mypassword
+      KC_IMPORT: dir:/opt/keycloak/data/import
+      KC_HOSTNAME_URL: http://localhost:80 
+    depends_on:
+      ondc-postgres :
+        condition: service_healthy        
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'exec 3<>/dev/tcp/localhost/8080; echo -e "GET /health/ready HTTP/1.1\nhost: localhost:8080\n" >&3; timeout --preserve-status 1 cat <&3 | grep -m 1 status | grep -m 1 UP; ERROR=$?; exec 3<&-; exec 3>&-; exit $ERROR'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ondc-backend:
+  #   build: ./backend
+  #   ports:
+  #     - "4000:4000"
+  #   depends_on:
+  #     ondc-postgres :
+  #       condition: service_healthy
+  #   environment:
+  #     - NODE_ENV=development
+  #     - DB_HOST=ondc-postgres
+  #     - DB_PASSWORD=mypassword
+  #     - DB_NAME=mydb
+  #     - DB_USER=myuser
+  #   networks:
+  #     - app-network
+
+  ondc-frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_GRAPHQL_API=http://ondc-backend:4000/graphql
+    depends_on:
+      ondc-postgres :
+        condition: service_healthy
+      ondc-keycloak:
+        condition: service_healthy
+      # ondc-backend:
+      #   condition: service_started      
+    networks:
+      - app-network
+
+  ondc-postgres:
+    restart: always
+    image: postgres:latest
+    environment:
+      - POSTGRES_DB=mydb
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgressql/data
+    networks:
+      - app-network 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 30s  # Interval between health checks
+      timeout: 10s   # Time to wait for the health check to complete
+      retries: 5     # Number of retries before marking the container as unhealthy
+      start_period: 30s  # Time to wait before starting the first health check     
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+      

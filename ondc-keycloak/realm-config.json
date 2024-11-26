@@ -1,0 +1,32 @@
+{
+    "realm": "ondc-seller",
+    "enabled": true,
+    "clients": [
+      {
+        "clientId": "ondc-client",
+        "enabled": true,
+        "protocol": "openid-connect",
+        "redirectUris": ["http://ondc-frontend:80/*", "https://frontend-balancer-1362903206.eu-north-1.elb.amazonaws.com/*", "*"],
+        "webOrigins": ["*"],
+        "publicClient": true,
+        "serviceAccountsEnabled": true
+      }
+    ],
+    "users": [
+      {
+        "username": "testuser",
+        "enabled": true,
+        "emailVerified": true,
+        "firstName": "Test",
+        "lastName": "User",
+        "credentials": [
+          {
+            "type": "password",
+            "value": "password123",
+            "temporary": false
+          }
+        ]
+      }
+    ]
+  }
+  
